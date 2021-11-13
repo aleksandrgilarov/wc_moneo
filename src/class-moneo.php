@@ -16,33 +16,28 @@ class Moneo {
     }
 
     public function sync() {
+        error_log("\nAnother Sync with MONEO started at: ". time(), 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
         $this->load_products();
-                
-        $sku_list = [];
 
         if (null == $this->products) {
-            //update_post_meta(4, 'damn_error', 'happened'); // todo error_log
+            error_log("\nNo products were found". time(), 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
             return;
         }
-        
+
         foreach ($this->products as $product) {
-            $sku_list[] = $product->get_sku();
-        }
-
-        $leftovers = $this->get_leftovers($sku_list);
-
-        if (null == $leftovers) {
-            return;
-        }
-
-        foreach ($this->products as $key => $product) {
-            if ( (int) $leftovers[$key] == 0 ) {
-                $product->set_stock_status(self::OUT_OF_STOCK);
-                $product->set_stock_quantity($leftovers[$key]);
+            $leftover = $this->get_leftover($product->get_sku());
+            //error_log("\nleftover for SKU: ". $product->get_sku() . ' - ' . $leftover, 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
+            if (null == $leftover) {
+                error_log("\nCould not get leftover for SKU: ". $product->get_sku(), 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
+                continue;
             }
-            if ( (int) $leftovers[$key] > 0 ) {
+            if ( (int) $leftover == 0 ) {
+                $product->set_stock_status(self::OUT_OF_STOCK);
+                $product->set_stock_quantity($leftover);
+            }
+            if ( (int) $leftover > 0 ) {
                 $product->set_stock_status(self::IN_STOCK);
-                $product->set_stock_quantity($leftovers[$key]);
+                $product->set_stock_quantity($leftover);
             }
             $product->save();
         }
@@ -57,34 +52,33 @@ class Moneo {
         $this->products = $all_products;
     }
 
-    private function get_leftovers($sku_list) {
+    private function get_leftover($sku) {
         $body = [
-            'params' => [$sku_list],
+            'params' => [$sku],
             'request' => [
                 "compuid" => MONEO_COMPANY_ID
             ],
         ];
-        $response = wp_remote_post( self::BASE_URI . 'method/stock.getstockquantforitemlist', [
+        $response = wp_remote_post( self::BASE_URI . 'method/stock.getstockquant', [
             'method'      => 'POST',
             'timeout'     => 45,
             'redirection' => 5,
             'httpversion' => '1.0',
             'blocking'    => true,
+            'sslverify' => FALSE,
             'headers'     => [
                 'Authorization' => MONEO_KEY
             ],
             'body'        => wp_json_encode( $body ),
             'cookies'     => []
         ]);
-         
         if ( is_wp_error( $response ) ) {
             $error_message = $response->get_error_message();
-            update_post_meta(4, 'damn_error', $error_message); // error log here
+            error_log($error_message . "\n", 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
             return null;
         } else {
             $result = $response['body'];
             $result = json_decode($response['body']);
-            update_post_meta(4, 'result', $result->result[0]);
             return $result->result[0];       
         }
     }

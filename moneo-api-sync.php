@@ -24,7 +24,7 @@ register_deactivation_hook( __FILE__, 'deactivate' );
 
 function activate()
 {
-	wp_schedule_event(time(), 'hourly', 'update_all_leftovers_from_moneo'); // or daily
+	wp_schedule_event(time(), 'daily', 'update_all_leftovers_from_moneo');
 }
 
 function deactivate() {
