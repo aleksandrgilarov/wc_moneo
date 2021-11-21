@@ -15,7 +15,7 @@ class Moneo {
         $this->products = null;
     }
 
-    public function sync() {
+    public function sync_residue() {
         error_log("\nAnother Sync with MONEO started at: ". time(), 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
         $this->load_products();
 
@@ -77,9 +77,65 @@ class Moneo {
             error_log($error_message . "\n", 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
             return null;
         } else {
-            $result = $response['body'];
             $result = json_decode($response['body']);
             return $result->result[0];       
+        }
+    }
+
+    public function sync_prices() {
+        error_log("\nAnother Price Sync with MONEO started at: ". time(), 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
+        $this->load_products();
+
+        if (null == $this->products) {
+            error_log("\nNo products were found". time(), 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
+            return;
+        }
+        foreach ($this->products as $product) {
+            $sku = $product->get_sku();
+            if ($sku) {
+                $price = $this->get_price($sku);
+                if (null == $price) {
+                    error_log("\nNo price from moneo". time(), 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
+                    return;
+                }
+                if (!isset($price[1][0][0])) { // damn moneo data structure
+                    continue;
+                }
+                $product->set_price($price[1][0][0]);
+                $product->set_regular_price($price[1][0][0]);
+                $product->save();
+            }
+        }
+    }
+
+    private function get_price($sku) {
+        $body = [
+            'filter' => ["code" => $sku],
+            'fieldlist' => ["price"],
+            'request' => [
+                "compuid" => MONEO_COMPANY_ID
+            ],
+        ];
+        $response = wp_remote_post( self::BASE_URI . 'items.items', [
+            'method'      => 'POST',
+            'timeout'     => 45,
+            'redirection' => 5,
+            'httpversion' => '1.0',
+            'blocking'    => true,
+            'sslverify' => FALSE,
+            'headers'     => [
+                'Authorization' => MONEO_KEY
+            ],
+            'body'        => wp_json_encode( $body ),
+            'cookies'     => []
+        ]);
+        if ( is_wp_error( $response ) ) {
+            $error_message = $response->get_error_message();
+            //error_log($error_message . "\n", 3, "/var/www/ttatem/data/www/procosmetics.lv/wp-content/plugins/moneo-api-sync/error.log");
+            return null;
+        } else {
+            $result = json_decode($response['body']);
+            return $result->result[0];
         }
     }
 }

@@ -4,5 +4,11 @@
     <p>Moneo key used: <strong><?php echo MONEO_KEY; ?></strong></p>
     <p>Moneo company ID used: <strong><?php echo MONEO_COMPANY_ID; ?></strong></p>
 
-    <!-- <form method="post" action="<?php //echo esc_html( admin_url( 'admin-post.php' ) ); ?>"></form> TO-DO call sync for all / sync for 1 product-->
+    <form action="<?php echo admin_url('admin-post.php'); ?>" method="post">
+        <input type="hidden" name="action" value="moneo_price_update">
+        <?php wp_nonce_field( 'update-prices_'. uniqid());?>
+        <input type="submit" value="Update Moneo product prices">
+    </form>
 </div>
+
+ā
