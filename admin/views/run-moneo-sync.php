@@ -10,5 +10,3 @@
         <input type="submit" value="Update Moneo product prices">
     </form>
 </div>
-
-ā
